@@ -80,7 +80,7 @@ st.title("🔬 Scientific Calculator")
 st.caption("Structured like a Casio fx-991, built with Streamlit")
 
 # --- Display Screen ---
-# Use an empty markdown/text placeholder to simulate a single display box
+# The display remains an HTML-formatted area for better control
 st.container(border=True, height=100)
 st.markdown(
     f"""
@@ -110,28 +110,36 @@ button_rows = [
     ['4', '5', '6', '+', '='],
     # Row 6: Bottom Row
     ['1', '2', '3', 'Ans', '.'],
-    ['0', '00', '(', ')', '='] # Adjusted to fit 5 columns, last two are extra '='
+    # Row 7: Final numbers/operators
+    ['0', '00', '(', ')', '='] 
 ]
 
-for row in button_rows:
-    # Use st.columns(5) for a typical scientific calculator width
+# --- FIX: Global counter for unique keys ---
+unique_key_counter = 0
+
+for row_index, row in enumerate(button_rows):
+    # Use st.columns(len(row)) for the correct width
     cols = st.columns(len(row))
-    for i, button_label in enumerate(row):
+    for col_index, button_label in enumerate(row):
+        
         # Apply visual styling based on the button type
         if button_label in ('AC', 'DEL'):
-            btn_type = "primary" # Orange/Red color for AC/DEL
+            btn_type = "primary" 
         elif button_label == '=':
             btn_type = "primary"
-        elif button_label in ('+', '-', '*', '/', '^'):
-            btn_type = "secondary" # Grey/Darker buttons for operators
+        elif button_label in ('+', '-', '*', '/', '^', 'Ans', 'EXP'):
+            btn_type = "secondary"
         else:
-            btn_type = "secondary" # Default for numbers/functions
+            btn_type = "secondary" 
             
-        with cols[i]:
-            # The key must be unique, the on_click function passes the label to the handler
+        # 🔑 FIX: Generate a truly unique key using the counter 🔑
+        unique_key = f"btn_{button_label}_{unique_key_counter}" 
+        unique_key_counter += 1
+        
+        with cols[col_index]:
             st.button(
                 button_label, 
-                key=f"btn_{button_label}_{i}", 
+                key=unique_key,  # The unique key solves the error
                 on_click=handle_button_press, 
                 args=[button_label],
                 use_container_width=True,
