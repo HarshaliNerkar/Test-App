@@ -2,26 +2,22 @@ import streamlit as st
 import numpy as np
 import math
 
-# --- Safe Evaluation Logic (No Change) ---
-# (Keeping this section unchanged for reliability, as the focus is on UI now)
+# --- Safe Evaluation Logic (Unchanged for Functionality) ---
+
 def safe_eval(expression):
     """
     Safely evaluates a string expression with scientific functions.
     Handles 'Ans', 'log_b', '!', and other user-friendly notations.
     """
-    # 1. Standardize the expression for Python
     expression = expression.replace('^', '**')
     
-    # 2. Replace 'Ans' with the last result
     if 'Ans' in expression and 'last_result' in st.session_state:
         expression = expression.replace('Ans', str(st.session_state.last_result))
     
-    # 3. Handle Factorial 
     while '!' in expression:
         try:
-            # Look for a number (or parenthesized expression) immediately before '!'
             bang_index = expression.rfind('!')
-            if bang_index == -1: break # No '!' found, exit loop
+            if bang_index == -1: break 
 
             base_start = bang_index - 1
             if base_start < 0: return "Syntax Error (Factorial)"
@@ -49,10 +45,8 @@ def safe_eval(expression):
         except Exception:
             return "Syntax Error (Factorial)"
     
-    # 4. Handle log_base(x,b) -> math.log(x,b)
     expression = expression.replace('log_b(', 'math.log(')
     
-    # 5. Define the safe namespace
     safe_dict = {
         'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
         'log': np.log10, 'ln': np.log, 
@@ -61,7 +55,6 @@ def safe_eval(expression):
         'math': math, '__builtins__': None
     }
     
-    # 6. Attempt evaluation
     try:
         expression = expression.replace('pi', str(np.pi)).replace('e', str(np.e))
         result = eval(expression, {"__builtins__": None}, safe_dict)
@@ -73,7 +66,7 @@ def safe_eval(expression):
     except Exception:
         return "Syntax Error"
 
-# --- State Management (No Change) ---
+# --- State Management & Button Handlers (Unchanged) ---
 
 if 'display' not in st.session_state:
     st.session_state.display = ""
@@ -82,18 +75,4 @@ if 'last_result' not in st.session_state:
 if 'memory' not in st.session_state:
     st.session_state.memory = 0.0
 
-# --- Button Handlers (No Change) ---
-
 def handle_button_press(key):
-    """Updates the display and state based on the button pressed."""
-    
-    current_display = st.session_state.display
-    
-    if key == 'AC':
-        st.session_state.display = ""
-        st.session_state.last_result = 0.0
-        st.session_state.memory = 0.0 
-    elif key == 'DEL':
-        st.session_state.display = current_display[:-1]
-    elif key == '=':
-        result = safe_eval(current_display)
