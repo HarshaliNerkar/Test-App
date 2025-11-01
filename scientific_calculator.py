@@ -1,92 +1,139 @@
 import streamlit as st
-import numpy as np # Used for scientific functions like sin, cos, log
+import numpy as np
 import math
-import re
 
-# --- State Management & Logic ---
-if 'expression' not in st.session_state:
-    st.session_state.expression = ""
-if 'result' not in st.session_state:
-    st.session_state.result = ""
+# --- Safe Evaluation Logic ---
 
-def calculate():
-    """Evaluates the mathematical expression using Python's eval (with safety)."""
+def safe_eval(expression):
+    """
+    Safely evaluates a string expression with scientific functions.
+    Handles the common 'ans' and replaces user-friendly notation (^, sin, log)
+    with Python/NumPy syntax.
+    """
+    # 1. Standardize the expression for Python
+    expression = expression.replace('^', '**')
+    
+    # 2. Replace 'Ans' with the last result
+    if 'Ans' in expression and 'last_result' in st.session_state:
+        # Use str(st.session_state.last_result) to ensure it's a string for replacement
+        expression = expression.replace('Ans', str(st.session_state.last_result))
+
+    # 3. Define the safe namespace
+    safe_dict = {
+        'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
+        'log': np.log10, 'ln': np.log, 
+        'sqrt': np.sqrt, 'exp': np.exp,
+        'pi': np.pi, 'e': np.e,
+        # Allow basic arithmetic operations
+        '__builtins__': None
+    }
+    
+    # 4. Attempt evaluation
     try:
-        # Replace calculator notation with Python's math/numpy syntax
-        safe_expression = st.session_state.expression.replace('^', '**')
-        
-        # Use a restricted namespace for security (only allow math and numpy functions)
-        allowed_functions = {
-            'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
-            'sqrt': math.sqrt, 'log': np.log10, 'ln': np.log, 
-            'pi': np.pi, 'e': np.e
-        }
-        
-        # NOTE: eval() is powerful but dangerous. A more robust solution would use a library 
-        # like 'sympy' or a dedicated expression parser.
-        final_result = str(eval(safe_expression, {"__builtins__": None}, allowed_functions))
-        st.session_state.result = final_result
-        st.session_state.expression = final_result # Continue calculation from result
-        
-    except Exception as e:
-        st.session_state.result = "Error"
-        st.session_state.expression = ""
+        # Evaluate the expression using the restricted namespace
+        result = eval(expression, {"__builtins__": None}, safe_dict)
+        return str(result)
+    except Exception:
+        return "Syntax Error"
 
-def update_expression(key):
-    """Appends the pressed key to the current expression."""
-    if st.session_state.result == "Error":
-        st.session_state.expression = ""
-        st.session_state.result = ""
+# --- State Management ---
 
+if 'display' not in st.session_state:
+    st.session_state.display = ""
+if 'last_result' not in st.session_state:
+    st.session_state.last_result = 0.0
+
+# --- Button Handlers ---
+
+def handle_button_press(key):
+    """Updates the display based on the button pressed."""
+    
+    current_display = st.session_state.display
+    
     if key == 'AC':
-        st.session_state.expression = ""
-        st.session_state.result = ""
+        st.session_state.display = ""
+        st.session_state.last_result = 0.0
     elif key == 'DEL':
-        st.session_state.expression = st.session_state.expression[:-1]
+        st.session_state.display = current_display[:-1]
     elif key == '=':
-        calculate()
+        # Evaluate and update the state
+        result = safe_eval(current_display)
+        st.session_state.display = result
+        
+        # Only save a valid result as 'last_result' (Ans)
+        try:
+            st.session_state.last_result = float(result)
+        except ValueError:
+            st.session_state.last_result = 0.0
+            
+    elif key == 'Ans':
+        # Append the last result to the current display
+        st.session_state.display += str(st.session_state.last_result)
+        
     else:
-        st.session_state.expression += str(key)
+        st.session_state.display += key
 
-# --- Streamlit UI Components ---
-st.set_page_config(page_title="Scientific Calculator", layout="centered")
-st.title("🧮 Streamlit Scientific Calculator")
-st.markdown("---")
+# --- Streamlit UI ---
 
-# Display Screen (mimicking the two-line Casio display)
+st.set_page_config(page_title="Casio 991 Style Sci Calculator", layout="centered")
+st.title("🔬 Scientific Calculator")
+st.caption("Structured like a Casio fx-991, built with Streamlit")
+
+# --- Display Screen ---
+# Use an empty markdown/text placeholder to simulate a single display box
 st.container(border=True, height=100)
-st.write(f'<p style="font-size: 14px; color: grey; text-align: right; margin: 0px;">{st.session_state.expression}</p>', unsafe_allow_html=True)
-st.write(f'<h3 style="text-align: right; margin: 0px;">{st.session_state.result}</h3>', unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="text-align: right; overflow-x: auto; font-size: 18px; color: grey;">
+        {st.session_state.display}
+    </div>
+    <div style="text-align: right; font-size: 28px; font-weight: bold; height: 30px;">
+        {st.session_state.display if st.session_state.display else '0'}
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
 st.markdown("---")
 
-# Calculator Buttons Layout (5 columns to mimic Casio's width)
-# Define the button grid
+
+# --- Button Grid (5x5 layout to mimic Casio) ---
 button_rows = [
+    # Row 1: Function Keys
+    ['sin(', 'cos(', 'tan(', '^', 'sqrt('],
+    # Row 2: Scientific & Constants
+    ['log(', 'ln(', 'exp(', 'pi', 'e'],
+    # Row 3: Utility & Division
     ['AC', 'DEL', '(', ')', '/'],
-    ['sin(', 'cos(', 'tan(', '^', '*'],
-    ['sqrt(', 'log(', 'ln(', 'pi', '-'],
-    ['7', '8', '9', 'e', '+'],
-    ['4', '5', '6', '.', 'Ans'],
-    ['1', '2', '3', '0', '=']
+    # Row 4: Numbers & Operators
+    ['7', '8', '9', '*', '-'],
+    # Row 5: Numbers & Equals
+    ['4', '5', '6', '+', '='],
+    # Row 6: Bottom Row
+    ['1', '2', '3', 'Ans', '.'],
+    ['0', '00', '(', ')', '='] # Adjusted to fit 5 columns, last two are extra '='
 ]
 
 for row in button_rows:
-    cols = st.columns(5)
+    # Use st.columns(5) for a typical scientific calculator width
+    cols = st.columns(len(row))
     for i, button_label in enumerate(row):
-        # Different styles for AC/DEL and equals button
+        # Apply visual styling based on the button type
         if button_label in ('AC', 'DEL'):
-            style = "warning"
+            btn_type = "primary" # Orange/Red color for AC/DEL
         elif button_label == '=':
-            style = "primary"
+            btn_type = "primary"
+        elif button_label in ('+', '-', '*', '/', '^'):
+            btn_type = "secondary" # Grey/Darker buttons for operators
         else:
-            style = "secondary"
-
+            btn_type = "secondary" # Default for numbers/functions
+            
         with cols[i]:
+            # The key must be unique, the on_click function passes the label to the handler
             st.button(
                 button_label, 
-                key=button_label, 
-                on_click=update_expression, 
+                key=f"btn_{button_label}_{i}", 
+                on_click=handle_button_press, 
                 args=[button_label],
                 use_container_width=True,
-                type=style
+                type=btn_type
             )
